@@ -1,0 +1,534 @@
+<!DOCTYPE html>
+<html lang="de">
+  <head>
+    <meta charset="utf-8" />
+    <title>Agent Builder Konversation</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <style>
+      :root {
+        color-scheme: light dark;
+        font-family: "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      }
+
+      body {
+        margin: 0;
+        min-height: 100vh;
+        display: grid;
+        place-items: center;
+        background: linear-gradient(160deg, #f1f5f9, #e2e8f0);
+      }
+
+      main {
+        width: min(960px, 90vw);
+        background-color: rgba(255, 255, 255, 0.9);
+        border-radius: 1rem;
+        padding: 2.75rem;
+        box-shadow: 0 1.5rem 3rem rgba(15, 23, 42, 0.18);
+        backdrop-filter: blur(6px);
+        display: grid;
+        gap: 1.75rem;
+      }
+
+      header h1 {
+        margin: 0;
+        font-size: clamp(2rem, 5vw, 2.75rem);
+        color: #0f172a;
+      }
+
+      header p {
+        margin: 0.75rem 0 0;
+        line-height: 1.6;
+        color: #334155;
+      }
+
+      form {
+        display: grid;
+        gap: 1.25rem;
+      }
+
+      fieldset {
+        border: 1px solid rgba(148, 163, 184, 0.35);
+        border-radius: 0.9rem;
+        padding: 1.25rem 1.5rem 1.5rem;
+        background: rgba(241, 245, 249, 0.55);
+      }
+
+      legend {
+        padding: 0 0.5rem;
+        font-weight: 700;
+        color: #0f172a;
+      }
+
+      .config-grid {
+        display: grid;
+        gap: 1rem;
+        grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+      }
+
+      label {
+        font-weight: 600;
+        color: #1e293b;
+        display: grid;
+        gap: 0.35rem;
+      }
+
+      input,
+      textarea {
+        width: 100%;
+        padding: 0.9rem 1.1rem;
+        border-radius: 0.85rem;
+        border: 1px solid rgba(148, 163, 184, 0.6);
+        font: inherit;
+        background: rgba(255, 255, 255, 0.92);
+        color: inherit;
+      }
+
+      input:focus,
+      textarea:focus {
+        outline: 3px solid rgba(37, 99, 235, 0.25);
+        border-color: rgba(37, 99, 235, 0.65);
+      }
+
+      textarea {
+        min-height: 8rem;
+        resize: vertical;
+      }
+
+      .controls {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.75rem;
+        align-items: center;
+      }
+
+      button {
+        appearance: none;
+        border: none;
+        border-radius: 0.75rem;
+        padding: 0.875rem 1.5rem;
+        font-size: 1rem;
+        font-weight: 600;
+        color: white;
+        background: linear-gradient(135deg, #2563eb, #1d4ed8);
+        cursor: pointer;
+        transition: transform 150ms ease, box-shadow 150ms ease;
+      }
+
+      button:hover:not(:disabled) {
+        transform: translateY(-2px);
+        box-shadow: 0 0.75rem 1.5rem rgba(37, 99, 235, 0.35);
+      }
+
+      button:disabled {
+        opacity: 0.6;
+        cursor: wait;
+        box-shadow: none;
+        transform: none;
+      }
+
+      button.secondary {
+        background: linear-gradient(135deg, #64748b, #475569);
+      }
+
+      button.secondary:hover:not(:disabled) {
+        box-shadow: 0 0.75rem 1.5rem rgba(71, 85, 105, 0.35);
+      }
+
+      output {
+        display: block;
+        padding: 1.5rem;
+        border-radius: 1rem;
+        background: #0f172a;
+        color: #e2e8f0;
+        line-height: 1.65;
+        max-height: 24rem;
+        overflow: auto;
+        white-space: pre-wrap;
+        word-break: break-word;
+      }
+
+      .status {
+        min-height: 1.5rem;
+        font-weight: 600;
+        color: #334155;
+      }
+
+      .status.error {
+        color: #dc2626;
+      }
+
+      .status.success {
+        color: #16a34a;
+      }
+
+      .history {
+        display: grid;
+        gap: 1rem;
+        max-height: 26rem;
+        overflow: auto;
+        padding-right: 0.25rem;
+      }
+
+      .history-entry {
+        border-radius: 0.85rem;
+        padding: 1rem 1.25rem;
+        background: rgba(15, 23, 42, 0.08);
+      }
+
+      .history-entry h3 {
+        margin: 0 0 0.5rem;
+        font-size: 1.05rem;
+        color: #0f172a;
+      }
+
+      .history-entry pre {
+        margin: 0;
+        white-space: pre-wrap;
+        word-break: break-word;
+        font-family: "Fira Code", "SFMono-Regular", Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+      }
+
+      @media (max-width: 640px) {
+        main {
+          padding: 2rem;
+        }
+
+        .controls {
+          flex-direction: column;
+          align-items: stretch;
+        }
+
+        button {
+          width: 100%;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <main>
+      <header>
+        <h1>Agent Builder Konversation</h1>
+        <p>
+          Sende eine Eingabe an deinen Agenten und lasse die Antwort direkt hier
+          anzeigen. Trage dazu unten deinen OpenAI API-Schlüssel sowie die
+          Agent-ID aus dem Agent Builder ein. Der Aufruf nutzt die offizielle
+          Agents API von api.openai.com; stelle sicher, dass dein Schlüssel über
+          die nötigen Berechtigungen verfügt.
+        </p>
+      </header>
+
+      <section class="history" id="history" aria-live="polite"></section>
+
+      <form id="agent-form">
+        <fieldset>
+          <legend>Agent-Konfiguration</legend>
+          <div class="config-grid">
+            <label for="api-key">
+              OpenAI API-Schlüssel
+              <input
+                type="password"
+                id="api-key"
+                name="api-key"
+                autocomplete="off"
+                placeholder="sk-..."
+              />
+            </label>
+            <label for="agent-id">
+              Agent-ID
+              <input
+                type="text"
+                id="agent-id"
+                name="agent-id"
+                autocomplete="off"
+                placeholder="agent_..."
+              />
+            </label>
+            <label for="session-id">
+              Session-ID (optional)
+              <input
+                type="text"
+                id="session-id"
+                name="session-id"
+                autocomplete="off"
+                placeholder="wird automatisch angelegt"
+              />
+            </label>
+          </div>
+          <p style="margin: 0.75rem 0 0; color: #475569; font-size: 0.95rem">
+            Der API-Schlüssel wird nur im Browser genutzt und nicht gespeichert.
+            Um eine neue Unterhaltung zu starten, kannst du die Session-ID leeren
+            oder auf „Session zurücksetzen" klicken.
+          </p>
+          <div class="controls" style="margin-top: 0.75rem">
+            <button type="button" id="reset-session" class="secondary">
+              Session zurücksetzen
+            </button>
+            <span id="session-status" class="status" aria-live="polite"></span>
+          </div>
+        </fieldset>
+
+        <label for="prompt">Nachricht an den Agenten</label>
+        <textarea
+          id="prompt"
+          name="prompt"
+          required
+          placeholder="Beschreibe, was der Agent für dich tun soll..."
+        ></textarea>
+        <div class="controls">
+          <button type="submit" id="send-btn">Anfrage senden</button>
+          <span class="status" id="status" aria-live="polite"></span>
+        </div>
+      </form>
+
+      <section>
+        <h2 style="margin: 0; font-size: 1.2rem; color: #0f172a">Rohantwort</h2>
+        <output id="raw-output" hidden></output>
+      </section>
+    </main>
+
+    <script>
+      const API_BASE_URL = "https://api.openai.com/v1";
+      const STORAGE_KEYS = {
+        agentId: "agent-builder.agent-id",
+      };
+
+      const storage = (() => {
+        try {
+          const testKey = "agent-builder.storage-test";
+          window.localStorage.setItem(testKey, "1");
+          window.localStorage.removeItem(testKey);
+          return window.localStorage;
+        } catch (error) {
+          console.warn("Lokaler Speicher ist nicht verfügbar:", error);
+          return null;
+        }
+      })();
+
+      const form = document.getElementById("agent-form");
+      const promptField = document.getElementById("prompt");
+      const sendBtn = document.getElementById("send-btn");
+      const status = document.getElementById("status");
+      const rawOutput = document.getElementById("raw-output");
+      const history = document.getElementById("history");
+      const apiKeyField = document.getElementById("api-key");
+      const agentIdField = document.getElementById("agent-id");
+      const sessionIdField = document.getElementById("session-id");
+      const sessionStatus = document.getElementById("session-status");
+      const resetSessionBtn = document.getElementById("reset-session");
+
+      const storedAgentId = storage?.getItem(STORAGE_KEYS.agentId);
+      if (storedAgentId) {
+        agentIdField.value = storedAgentId;
+      }
+
+      agentIdField.addEventListener("change", () => {
+        const value = agentIdField.value.trim();
+        if (!storage) {
+          return;
+        }
+        if (value) {
+          storage.setItem(STORAGE_KEYS.agentId, value);
+        } else {
+          storage.removeItem(STORAGE_KEYS.agentId);
+        }
+      });
+
+      resetSessionBtn.addEventListener("click", () => {
+        sessionIdField.value = "";
+        setStatus(sessionStatus, "Session verworfen. Es wird eine neue erstellt.");
+      });
+
+      function appendHistoryEntry(role, content) {
+        const entry = document.createElement("article");
+        entry.className = "history-entry";
+        const heading = document.createElement("h3");
+        heading.textContent = role === "user" ? "Du" : "Agent";
+        const body = document.createElement("pre");
+        body.textContent = content;
+        entry.append(heading, body);
+        history.appendChild(entry);
+        history.scrollTop = history.scrollHeight;
+      }
+
+      function setStatus(element, message, tone = "") {
+        element.textContent = message;
+        element.className = tone ? `status ${tone}` : "status";
+      }
+
+      function buildHeaders(apiKey) {
+        return {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${apiKey}`,
+          "OpenAI-Beta": "agents=v1",
+        };
+      }
+
+      function normaliseErrorMessage(error) {
+        if (
+          error instanceof TypeError &&
+          (error.message === "Failed to fetch" || /NetworkError/i.test(error.message))
+        ) {
+          return "Netzwerkfehler: Prüfe Internetverbindung, CORS-Richtlinien oder die URL.";
+        }
+        return error.message || String(error);
+      }
+
+      function extractText(node) {
+        if (!node) return "";
+        if (typeof node === "string") return node;
+        if (Array.isArray(node)) {
+          return node
+            .map((part) => extractText(part))
+            .filter(Boolean)
+            .join("\n");
+        }
+        if (typeof node === "object") {
+          if (node.text) return extractText(node.text);
+          if (node.output) return extractText(node.output);
+          if (node.content) return extractText(node.content);
+          if (node.message) return extractText(node.message);
+          if (node.result) return extractText(node.result);
+          if (node.data) return extractText(node.data);
+        }
+        return "";
+      }
+
+      async function ensureSession(agentId, headers) {
+        let sessionId = sessionIdField.value.trim();
+        if (sessionId) {
+          setStatus(
+            sessionStatus,
+            `Bestehende Session wird verwendet: ${sessionId}`,
+            "success"
+          );
+          return sessionId;
+        }
+
+        setStatus(sessionStatus, "Erzeuge neue Session ...");
+
+        const response = await fetch(
+          `${API_BASE_URL}/agents/${encodeURIComponent(agentId)}/sessions`,
+          {
+            method: "POST",
+            headers,
+          }
+        );
+
+        if (!response.ok) {
+          throw new Error(
+            `Session konnte nicht erstellt werden (HTTP ${response.status}).`
+          );
+        }
+
+        const data = await response.json();
+        sessionId = data?.id || data?.session?.id;
+
+        if (!sessionId) {
+          throw new Error(
+            "Antwort enthält keine Session-ID. Prüfe die Agenten-Konfiguration."
+          );
+        }
+
+        sessionIdField.value = sessionId;
+        setStatus(sessionStatus, `Session erstellt: ${sessionId}`, "success");
+        return sessionId;
+      }
+
+      async function sendPrompt(event) {
+        event.preventDefault();
+        const prompt = promptField.value.trim();
+        if (!prompt) {
+          setStatus(status, "Bitte gib eine Nachricht ein.", "error");
+          return;
+        }
+
+        const apiKey = apiKeyField.value.trim();
+        if (!apiKey) {
+          setStatus(status, "Bitte trage deinen OpenAI API-Schlüssel ein.", "error");
+          return;
+        }
+
+        const agentId = agentIdField.value.trim();
+        if (!agentId) {
+          setStatus(status, "Bitte trage die Agent-ID ein.", "error");
+          return;
+        }
+
+        sendBtn.disabled = true;
+        setStatus(status, "Anfrage wird gesendet ...");
+        rawOutput.hidden = true;
+        rawOutput.textContent = "";
+        setStatus(sessionStatus, "");
+
+        let sessionId = sessionIdField.value.trim();
+
+        appendHistoryEntry("user", prompt);
+
+        try {
+          const headers = buildHeaders(apiKey);
+          sessionId = await ensureSession(agentId, headers);
+
+          const response = await fetch(
+            `${API_BASE_URL}/agents/${encodeURIComponent(
+              agentId
+            )}/sessions/${encodeURIComponent(sessionId)}/responses`,
+            {
+              method: "POST",
+              headers,
+              body: JSON.stringify({
+                input: [
+                  {
+                    role: "user",
+                    content: [
+                      {
+                        type: "input_text",
+                        text: prompt,
+                      },
+                    ],
+                  },
+                ],
+              }),
+            }
+          );
+
+          if (!response.ok) {
+            throw new Error(`HTTP ${response.status} ${response.statusText}`);
+          }
+
+          const contentType = response.headers.get("content-type") || "";
+          const timestamp = new Date().toLocaleTimeString();
+
+          if (contentType.includes("application/json")) {
+            const data = await response.json();
+            rawOutput.textContent = JSON.stringify(data, null, 2);
+            rawOutput.hidden = false;
+
+            const agentMessage = extractText(data) || "[Keine Textantwort erhalten]";
+            appendHistoryEntry("agent", `${timestamp}\n${agentMessage}`);
+          } else {
+            const text = await response.text();
+            rawOutput.textContent = text.trim();
+            rawOutput.hidden = false;
+            appendHistoryEntry("agent", `${timestamp}\n${text.trim()}`);
+          }
+
+          setStatus(status, "Antwort empfangen.", "success");
+          form.reset();
+          apiKeyField.value = apiKey; // nicht löschen, damit Folgefragen möglich sind
+          agentIdField.value = agentId;
+          sessionIdField.value = sessionId;
+          storage?.setItem(STORAGE_KEYS.agentId, agentId);
+        } catch (error) {
+          const message = normaliseErrorMessage(error);
+          setStatus(status, `Fehler: ${message}`, "error");
+          setStatus(sessionStatus, message ? `Session-Fehler: ${message}` : "Session-Fehler", "error");
+          appendHistoryEntry("agent", `Fehler: ${message}`);
+        } finally {
+          sendBtn.disabled = false;
+        }
+      }
+
+      form.addEventListener("submit", sendPrompt);
+    </script>
+  </body>
+</html>
