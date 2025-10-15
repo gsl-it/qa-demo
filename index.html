@@ -401,6 +401,7 @@
         }
         if (typeof node === "object") {
           if (node.text) return extractText(node.text);
+          if (node.response) return extractText(node.response);
           if (node.output) return extractText(node.output);
           if (node.content) return extractText(node.content);
           if (node.message) return extractText(node.message);
