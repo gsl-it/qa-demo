@@ -335,8 +335,25 @@
 
       resetSessionBtn.addEventListener("click", () => {
         sessionIdField.value = "";
-        setStatus(sessionStatus, "Session verworfen. Es wird eine neue erstellt.");
+        setStatus(
+          sessionStatus,
+          "Session verworfen. Bei der nächsten Anfrage wird automatisch eine neue vergeben.",
+          ""
+        );
       });
+
+      if (window.location.protocol === "file:") {
+        const warning = document.createElement("p");
+        warning.style.margin = "0";
+        warning.style.padding = "0.75rem 1rem";
+        warning.style.borderRadius = "0.85rem";
+        warning.style.background = "rgba(248, 113, 113, 0.15)";
+        warning.style.color = "#b91c1c";
+        warning.style.fontWeight = "600";
+        warning.textContent =
+          "Hinweis: Lade die Datei über einen lokalen Webserver (z. B. `npx serve`), damit Browser die Verbindung zur OpenAI API erlauben.";
+        document.querySelector("header")?.appendChild(warning);
+      }
 
       function appendHistoryEntry(role, content) {
         const entry = document.createElement("article");
@@ -393,45 +410,30 @@
         return "";
       }
 
-      async function ensureSession(agentId, headers) {
-        let sessionId = sessionIdField.value.trim();
-        if (sessionId) {
-          setStatus(
-            sessionStatus,
-            `Bestehende Session wird verwendet: ${sessionId}`,
-            "success"
-          );
-          return sessionId;
-        }
-
-        setStatus(sessionStatus, "Erzeuge neue Session ...");
-
-        const response = await fetch(
-          `${API_BASE_URL}/agents/${encodeURIComponent(agentId)}/sessions`,
-          {
-            method: "POST",
-            headers,
+      async function parseErrorResponse(response) {
+        const baseMessage = `HTTP ${response.status} ${response.statusText}`;
+        const contentType = response.headers.get("content-type") || "";
+        if (contentType.includes("application/json")) {
+          try {
+            const data = await response.json();
+            const extracted = extractText(data) || data?.error?.message;
+            if (extracted) {
+              return `${baseMessage}: ${extracted}`;
+            }
+          } catch (error) {
+            console.warn("Antwort konnte nicht als JSON gelesen werden:", error);
           }
-        );
-
-        if (!response.ok) {
-          throw new Error(
-            `Session konnte nicht erstellt werden (HTTP ${response.status}).`
-          );
+        } else {
+          try {
+            const text = (await response.text()).trim();
+            if (text) {
+              return `${baseMessage}: ${text}`;
+            }
+          } catch (error) {
+            console.warn("Antwort konnte nicht als Text gelesen werden:", error);
+          }
         }
-
-        const data = await response.json();
-        sessionId = data?.id || data?.session?.id;
-
-        if (!sessionId) {
-          throw new Error(
-            "Antwort enthält keine Session-ID. Prüfe die Agenten-Konfiguration."
-          );
-        }
-
-        sessionIdField.value = sessionId;
-        setStatus(sessionStatus, `Session erstellt: ${sessionId}`, "success");
-        return sessionId;
+        return baseMessage;
       }
 
       async function sendPrompt(event) {
@@ -460,22 +462,30 @@
         rawOutput.textContent = "";
         setStatus(sessionStatus, "");
 
-        let sessionId = sessionIdField.value.trim();
-
         appendHistoryEntry("user", prompt);
 
         try {
           const headers = buildHeaders(apiKey);
-          sessionId = await ensureSession(agentId, headers);
-
+          const existingSessionId = sessionIdField.value.trim();
+          if (existingSessionId) {
+            setStatus(
+              sessionStatus,
+              `Bestehende Session wird verwendet: ${existingSessionId}`,
+              "success"
+            );
+          } else {
+            setStatus(
+              sessionStatus,
+              "Es wird eine neue Session für diese Unterhaltung angelegt ..."
+            );
+          }
           const response = await fetch(
-            `${API_BASE_URL}/agents/${encodeURIComponent(
-              agentId
-            )}/sessions/${encodeURIComponent(sessionId)}/responses`,
+            `${API_BASE_URL}/agents/${encodeURIComponent(agentId)}/responses`,
             {
               method: "POST",
               headers,
               body: JSON.stringify({
+                ...(existingSessionId ? { session_id: existingSessionId } : {}),
                 input: [
                   {
                     role: "user",
@@ -492,7 +502,7 @@
           );
 
           if (!response.ok) {
-            throw new Error(`HTTP ${response.status} ${response.statusText}`);
+            throw new Error(await parseErrorResponse(response));
           }
 
           const contentType = response.headers.get("content-type") || "";
@@ -505,6 +515,22 @@
 
             const agentMessage = extractText(data) || "[Keine Textantwort erhalten]";
             appendHistoryEntry("agent", `${timestamp}\n${agentMessage}`);
+
+            const returnedSessionId =
+              data?.session_id || data?.session?.id || data?.response?.session_id;
+            if (returnedSessionId) {
+              sessionIdField.value = returnedSessionId;
+              setStatus(
+                sessionStatus,
+                `Session aktiv: ${returnedSessionId}`,
+                "success"
+              );
+            } else if (!existingSessionId) {
+              setStatus(
+                sessionStatus,
+                "Hinweis: Die Antwort enthielt keine Session-ID. Folgefragen erzeugen eine neue Unterhaltung."
+              );
+            }
           } else {
             const text = await response.text();
             rawOutput.textContent = text.trim();
@@ -513,10 +539,9 @@
           }
 
           setStatus(status, "Antwort empfangen.", "success");
-          form.reset();
-          apiKeyField.value = apiKey; // nicht löschen, damit Folgefragen möglich sind
+          promptField.value = "";
+          apiKeyField.value = apiKey;
           agentIdField.value = agentId;
-          sessionIdField.value = sessionId;
           storage?.setItem(STORAGE_KEYS.agentId, agentId);
         } catch (error) {
           const message = normaliseErrorMessage(error);
